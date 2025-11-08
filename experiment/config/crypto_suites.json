@@ -1,0 +1,68 @@
+{
+    "active_suite": "default_tls13",
+    "enable_experiment": true,
+    "plugins": [
+        {
+            "name": "custom_crypto_plugin",
+            "path": "./plugins/libcustom_crypto.so",
+            "enabled": false
+        },
+        {
+            "name": "quantum_resistant_plugin",
+            "path": "./plugins/libquantum_crypto.so",
+            "enabled": false
+        }
+    ],
+    "suites": [
+        {
+            "name": "default_tls13",
+            "description": "Default TLS 1.3 style crypto suite",
+            "key_exchange": "ECDHE-P256",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "SHA256",
+            "data_protection": "AES256-GCM",
+            "message_auth": "HMAC-SHA256",
+            "signature": "ECDSA-P256"
+        },
+        {
+            "name": "alt_aes128",
+            "description": "Alternative suite with AES128",
+            "key_exchange": "ECDHE-P256",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "SHA256",
+            "data_protection": "AES128-GCM",
+            "message_auth": "HMAC-SHA256",
+            "signature": "ECDSA-P256"
+        },
+        {
+            "name": "alt_chacha20",
+            "description": "Suite with ChaCha20-Poly1305",
+            "key_exchange": "ECDHE-P256",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "SHA256",
+            "data_protection": "ChaCha20-Poly1305",
+            "message_auth": "HMAC-SHA256",
+            "signature": "Ed25519"
+        },
+        {
+            "name": "experimental_sha3",
+            "description": "Experimental suite with SHA3",
+            "key_exchange": "ECDHE-P384",
+            "key_derivation": "HKDF-SHA384",
+            "hash": "SHA3-384",
+            "data_protection": "AES256-GCM",
+            "message_auth": "HMAC-SHA384",
+            "signature": "ECDSA-P384"
+        },
+        {
+            "name": "postquantum_hybrid",
+            "description": "Post-quantum hybrid suite",
+            "key_exchange": "ECDHE-P256:X25519",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "SHA256",
+            "data_protection": "AES256-GCM:ChaCha20-Poly1305",
+            "message_auth": "HMAC-SHA256",
+            "signature": "ECDSA-P256:Ed25519"
+        }
+    ]
+}
