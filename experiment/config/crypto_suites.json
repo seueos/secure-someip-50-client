@@ -1,11 +1,11 @@
 {
-    "active_suite": "default_tls13",
-    "enable_experiment": true,
+    "active_suite": "ascon_x25519",
+    "enable_experiment": false,
     "plugins": [
         {
-            "name": "custom_crypto_plugin",
-            "path": "./plugins/libcustom_crypto.so",
-            "enabled": false
+            "name": "ascon_speck_plugin",
+            "path": "/home/mskim/SecureVsome/experiment/build/plugins/libascon_speck_plugin.so",
+            "enabled": true
         },
         {
             "name": "quantum_resistant_plugin",
@@ -14,6 +14,26 @@
         }
     ],
     "suites": [
+        {
+            "name": "ascon_x25519",
+            "description": "X25519 + HKDF-SHA256 + ASCON-128 AEAD + ASCON-MAC + Ed25519",
+            "key_exchange": "X25519",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "ASCON-HASH",
+            "data_protection": "ASCON-128 AEAD",
+            "message_auth": "ASCON-MAC",
+            "signature": "Ed25519"
+        },
+        {
+            "name": "speck_p256",
+            "description": "ECDHE-P256 + HKDF-SHA256 + SPECK + ASCON-MAC + Ed25519",
+            "key_exchange": "ECDHE-P256",
+            "key_derivation": "HKDF-SHA256",
+            "hash": "ASCON-HASH",
+            "data_protection": "SPECK",
+            "message_auth": "ASCON-MAC",
+            "signature": "Ed25519"
+        },
         {
             "name": "default_tls13",
             "description": "Default TLS 1.3 style crypto suite",

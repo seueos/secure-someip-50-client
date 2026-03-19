@@ -4,6 +4,8 @@
 #include "../config/crypto_config.hpp"
 #include <memory>
 #include <string>
+#include <vector>
+#include <cstdint>
 
 namespace experiment {
 namespace crypto {
@@ -21,6 +23,10 @@ public:
     virtual ~key_derivation_interface() = default;
     virtual std::string get_algorithm_name() const = 0;
     virtual bool is_supported() const = 0;
+    virtual std::vector<std::uint8_t> derive(const std::vector<std::uint8_t>& ikm,
+                                             const std::vector<std::uint8_t>& salt,
+                                             const std::vector<std::uint8_t>& info,
+                                             std::size_t out_len) = 0;
 };
 
 class hash_interface {
@@ -28,6 +34,7 @@ public:
     virtual ~hash_interface() = default;
     virtual std::string get_algorithm_name() const = 0;
     virtual bool is_supported() const = 0;
+    virtual std::vector<std::uint8_t> compute(const std::vector<std::uint8_t>& data) = 0;
 };
 
 class data_protection_interface {
@@ -35,6 +42,14 @@ public:
     virtual ~data_protection_interface() = default;
     virtual std::string get_algorithm_name() const = 0;
     virtual bool is_supported() const = 0;
+    virtual std::vector<std::uint8_t> seal(const std::vector<std::uint8_t>& key,
+                                           const std::vector<std::uint8_t>& nonce,
+                                           const std::vector<std::uint8_t>& aad,
+                                           const std::vector<std::uint8_t>& plaintext) = 0;
+    virtual std::vector<std::uint8_t> open(const std::vector<std::uint8_t>& key,
+                                           const std::vector<std::uint8_t>& nonce,
+                                           const std::vector<std::uint8_t>& aad,
+                                           const std::vector<std::uint8_t>& ciphertext_and_tag) = 0;
 };
 
 class message_auth_interface {
@@ -42,6 +57,13 @@ public:
     virtual ~message_auth_interface() = default;
     virtual std::string get_algorithm_name() const = 0;
     virtual bool is_supported() const = 0;
+    virtual std::vector<std::uint8_t> mac(const std::vector<std::uint8_t>& key,
+                                          const std::vector<std::uint8_t>& nonce,
+                                          const std::vector<std::uint8_t>& data) = 0;
+    virtual bool verify(const std::vector<std::uint8_t>& key,
+                        const std::vector<std::uint8_t>& nonce,
+                        const std::vector<std::uint8_t>& data,
+                        const std::vector<std::uint8_t>& tag) = 0;
 };
 
 class signature_interface {

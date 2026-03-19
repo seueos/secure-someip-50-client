@@ -13,6 +13,14 @@
     { "name": "bench_server", "id": "0x3101" },
     { "name": "bench_client", "id": "0x3102" }
   ],
+  "routing": "bench_server",
+  "service-discovery": {
+    "enable": "false"
+  },
+  "logging": {
+    "level": "debug",
+    "console": "true"
+  },
   "services": [
     {
       "service": "0x9001",

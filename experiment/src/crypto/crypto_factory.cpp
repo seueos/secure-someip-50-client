@@ -9,6 +9,11 @@
 namespace experiment {
 namespace crypto {
 
+// Forward declarations for local helper mapping functions
+static std::string map_key_exchange_to_groups(const std::string& key_exchange);
+static std::string map_signature_to_sigalgs(const std::string& signature);
+static std::string map_data_protection_to_ciphersuites(const std::string& data_protection);
+
 // 기본 구현체들 (현재는 로깅만 하는 stub)
 class basic_key_exchange : public key_exchange_interface {
 public:
@@ -24,6 +29,13 @@ public:
     basic_key_derivation(const std::string& algorithm) : algorithm_(algorithm) {}
     std::string get_algorithm_name() const override { return algorithm_; }
     bool is_supported() const override { return true; }
+    std::vector<std::uint8_t> derive(const std::vector<std::uint8_t>& /*ikm*/,
+                                     const std::vector<std::uint8_t>& /*salt*/,
+                                     const std::vector<std::uint8_t>& /*info*/,
+                                     std::size_t out_len) override {
+        // Stub: return zeroed key material of requested length
+        return std::vector<std::uint8_t>(out_len, 0);
+    }
 private:
     std::string algorithm_;
 };
@@ -33,6 +45,10 @@ public:
     basic_hash(const std::string& algorithm) : algorithm_(algorithm) {}
     std::string get_algorithm_name() const override { return algorithm_; }
     bool is_supported() const override { return true; }
+    std::vector<std::uint8_t> compute(const std::vector<std::uint8_t>& data) override {
+        // Stub: echo input as "hash" (not cryptographically meaningful)
+        return data;
+    }
 private:
     std::string algorithm_;
 };
@@ -42,6 +58,20 @@ public:
     basic_data_protection(const std::string& algorithm) : algorithm_(algorithm) {}
     std::string get_algorithm_name() const override { return algorithm_; }
     bool is_supported() const override { return true; }
+    std::vector<std::uint8_t> seal(const std::vector<std::uint8_t>& /*key*/,
+                                   const std::vector<std::uint8_t>& /*nonce*/,
+                                   const std::vector<std::uint8_t>& /*aad*/,
+                                   const std::vector<std::uint8_t>& plaintext) override {
+        // Stub: return plaintext as "ciphertext" (no real encryption)
+        return plaintext;
+    }
+    std::vector<std::uint8_t> open(const std::vector<std::uint8_t>& /*key*/,
+                                   const std::vector<std::uint8_t>& /*nonce*/,
+                                   const std::vector<std::uint8_t>& /*aad*/,
+                                   const std::vector<std::uint8_t>& ciphertext_and_tag) override {
+        // Stub: return input as "plaintext"
+        return ciphertext_and_tag;
+    }
 private:
     std::string algorithm_;
 };
@@ -51,6 +81,23 @@ public:
     basic_message_auth(const std::string& algorithm) : algorithm_(algorithm) {}
     std::string get_algorithm_name() const override { return algorithm_; }
     bool is_supported() const override { return true; }
+    std::vector<std::uint8_t> mac(const std::vector<std::uint8_t>& /*key*/,
+                                  const std::vector<std::uint8_t>& /*nonce*/,
+                                  const std::vector<std::uint8_t>& data) override {
+        // Stub: return the last 16 bytes (or padded zeros) as "tag"
+        std::vector<std::uint8_t> tag(16, 0);
+        if (!data.empty()) {
+            const std::size_t copy_len = std::min<std::size_t>(16, data.size());
+            std::copy(data.end() - copy_len, data.end(), tag.end() - copy_len);
+        }
+        return tag;
+    }
+    bool verify(const std::vector<std::uint8_t>& key,
+                const std::vector<std::uint8_t>& nonce,
+                const std::vector<std::uint8_t>& data,
+                const std::vector<std::uint8_t>& tag) override {
+        return mac(key, nonce, data) == tag;
+    }
 private:
     std::string algorithm_;
 };
@@ -63,18 +110,6 @@ public:
 private:
     std::string algorithm_;
 };
-
-// crypto_suite 구현
-crypto_suite::crypto_suite(const config::crypto_suite_config& config)
-    : config_(config) {
-    // 현재는 기본 구현체들만 생성 (실제 OpenSSL 연동은 추후 확장)
-    key_exchange_ = std::make_shared<basic_key_exchange>(config.key_exchange);
-    key_derivation_ = std::make_shared<basic_key_derivation>(config.key_derivation);
-    hash_ = std::make_shared<basic_hash>(config.hash);
-    data_protection_ = std::make_shared<basic_data_protection>(config.data_protection);
-    message_auth_ = std::make_shared<basic_message_auth>(config.message_auth);
-    signature_ = std::make_shared<basic_signature>(config.signature);
-}
 
 std::shared_ptr<key_exchange_interface> crypto_suite::get_key_exchange() const {
     return key_exchange_;
@@ -216,10 +251,10 @@ std::vector<std::string> plugin_manager::get_loaded_plugins() const {
 }
 
 // 알고리즘 생성 헬퍼 함수들
-template<typename T>
+template<typename T, typename CreateFunc>
 std::shared_ptr<T> create_algorithm_from_plugins(const std::string& algorithm,
                                                const std::unordered_map<std::string, std::shared_ptr<crypto_plugin>>& plugins,
-                                               std::shared_ptr<T> (*create_func)(crypto_plugin*, const std::string&)) {
+                                               CreateFunc create_func) {
     for (const auto& plugin_pair : plugins) {
         try {
             auto result = create_func(plugin_pair.second.get(), algorithm);
@@ -235,42 +270,42 @@ std::shared_ptr<T> create_algorithm_from_plugins(const std::string& algorithm,
 }
 
 std::shared_ptr<key_exchange_interface> plugin_manager::create_key_exchange(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<key_exchange_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_key_exchange(alg);
         });
 }
 
 std::shared_ptr<key_derivation_interface> plugin_manager::create_key_derivation(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<key_derivation_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_key_derivation(alg);
         });
 }
 
 std::shared_ptr<hash_interface> plugin_manager::create_hash(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<hash_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_hash(alg);
         });
 }
 
 std::shared_ptr<data_protection_interface> plugin_manager::create_data_protection(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<data_protection_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_data_protection(alg);
         });
 }
 
 std::shared_ptr<message_auth_interface> plugin_manager::create_message_auth(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<message_auth_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_message_auth(alg);
         });
 }
 
 std::shared_ptr<signature_interface> plugin_manager::create_signature(const std::string& algorithm) {
-    return create_algorithm_from_plugins(algorithm, loaded_plugins_,
+    return create_algorithm_from_plugins<signature_interface>(algorithm, loaded_plugins_,
         [](crypto_plugin* plugin, const std::string& alg) {
             return plugin->create_signature(alg);
         });
@@ -435,22 +470,22 @@ void crypto_factory::apply_to_environment(const std::string& address, uint16_t p
               << address << ":" << port << std::endl;
 }
 
-// 헬퍼 함수들 (실제 매핑 로직은 향후 구현)
-std::string crypto_factory::map_key_exchange_to_groups(const std::string& key_exchange) {
+// 헬퍼 함수들 (실제 매핑 로직은 향후 구현) - free functions to match header removal
+static std::string map_key_exchange_to_groups(const std::string& key_exchange) {
     if (key_exchange.find("ECDHE-P256") != std::string::npos) return "P-256";
     if (key_exchange.find("ECDHE-P384") != std::string::npos) return "P-384";
     if (key_exchange.find("X25519") != std::string::npos) return "X25519";
     return "";
 }
 
-std::string crypto_factory::map_signature_to_sigalgs(const std::string& signature) {
+static std::string map_signature_to_sigalgs(const std::string& signature) {
     if (signature.find("ECDSA-P256") != std::string::npos) return "ecdsa_secp256r1_sha256";
     if (signature.find("ECDSA-P384") != std::string::npos) return "ecdsa_secp384r1_sha384";
     if (signature.find("Ed25519") != std::string::npos) return "ed25519";
     return "";
 }
 
-std::string crypto_factory::map_data_protection_to_ciphersuites(const std::string& data_protection) {
+static std::string map_data_protection_to_ciphersuites(const std::string& data_protection) {
     if (data_protection.find("AES256-GCM") != std::string::npos) return "TLS_AES_256_GCM_SHA384";
     if (data_protection.find("AES128-GCM") != std::string::npos) return "TLS_AES_128_GCM_SHA256";
     if (data_protection.find("ChaCha20-Poly1305") != std::string::npos) return "TLS_CHACHA20_POLY1305_SHA256";
