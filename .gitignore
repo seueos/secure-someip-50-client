@@ -1,0 +1,12 @@
+# Local / CMake build trees
+/build/
+/build_asan/
+/build_nosec/
+/experiment/build/
+.localinstall/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
